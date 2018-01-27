@@ -1,3 +1,10 @@
+/**
+ * Modified https://playground.arduino.cc/Code/HomeEasy?action=sourceblock&num=3
+ * by
+ * Barnaby Gray 12/2008
+ * Peter Mead   09/2009
+ */
+
 #include <Arduino.h>
 
 // function prototype allowing the function to be used before it is defined.
