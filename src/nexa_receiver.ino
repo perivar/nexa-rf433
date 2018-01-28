@@ -172,15 +172,7 @@ bool receiveProtocolNexa(unsigned int changeCount)
 
     // store bits in char array
     unsigned int nReceivedBitsPos = 0;
-    unsigned int nTmpReceivedBitlength = (changeCount - 3) / 2; // 3 startings bits
-
-    // dynamically define the bit char array
-    // https://arduino.stackexchange.com/questions/3774/how-can-i-declare-an-array-of-variable-size-globally
-    //if (receivedBitsArray != 0)
-    //{
-    //  delete[] receivedBitsArray;
-    //}
-    //receivedBitsArray = new char[nTmpReceivedBitlength];
+    unsigned int nTmpReceivedBitlength = (changeCount - 3) / 2; // 3 starting bits needs to be removed
 
 #ifdef DEBUG
     Serial.println();
