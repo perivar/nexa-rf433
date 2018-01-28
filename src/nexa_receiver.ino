@@ -167,12 +167,12 @@ bool receiveProtocolNexa(unsigned int changeCount)
         return false;
 
     unsigned long code = 0;
-    const unsigned long delay = timings[0] / 41;
+    const unsigned long delay = timings[0] / 40; // 40T
     const unsigned long delayTolerance = delay * nReceiveTolerance / 100;
 
     // store bits in the receivedBits char array
-    unsigned int nReceivedBitsPos = 0;
-    unsigned int nTmpReceivedBitlength = (changeCount - 3) / 2; // 3 starting bits needs to be removed
+    unsigned int receivedBitsPos = 0;
+    unsigned int receivedBitlength = (changeCount - 1) / 2; // 3 starting bits and one pause bit needs to be removed
 
 #ifdef DEBUG
     Serial.println();
@@ -183,11 +183,11 @@ bool receiveProtocolNexa(unsigned int changeCount)
     Serial.print(". Delay tolerance: ");
     Serial.print(delayTolerance);
     Serial.print(". Bit length: ");
-    Serial.print(nTmpReceivedBitlength);
+    Serial.print(receivedBitlength);
     Serial.println();
 
     Serial.print("Raw data: ");
-    for (int i = 0; i <= changeCount; i++)
+    for (int i = 0; i < changeCount; i++)
     {
         Serial.print(timings[i]);
         Serial.print(",");
@@ -195,11 +195,11 @@ bool receiveProtocolNexa(unsigned int changeCount)
     Serial.println();
 #endif
 
-    for (int i = 1; i < changeCount; i = i + 2)
+    for (unsigned int i = 1; i < changeCount - 1; i += 2)
     {
         // check if have sync bit (T + 10T)
         if (diff(timings[i], delay) < delayTolerance &&
-            diff(timings[i + 1], delay * 11) < delayTolerance)
+            diff(timings[i + 1], delay * 10) < delayTolerance)
         {
 #ifdef DEBUG
             Serial.print("sync ");
@@ -214,7 +214,7 @@ bool receiveProtocolNexa(unsigned int changeCount)
             Serial.print("1");
 #endif
             // store one in receivedBits char array
-            receivedBits[nReceivedBitsPos++] = '1';
+            receivedBits[receivedBitsPos++] = '1';
         }
         // or 0 bit (T + 5T)
         else if (diff(timings[i], delay) < delayTolerance &&
@@ -224,21 +224,24 @@ bool receiveProtocolNexa(unsigned int changeCount)
             Serial.print("0");
 #endif
             // store zero in receivedBits char array
-            receivedBits[nReceivedBitsPos++] = '0';
+            receivedBits[receivedBitsPos++] = '0';
         }
         else
         {
+#ifdef DEBUG
+            Serial.println("-failed!");
+#endif
             // Failed
             return false;
         }
     }
 
 #ifdef DEBUG
-    if (nReceivedBitsPos > 0)
+    if (receivedBitsPos > 0)
     {
         Serial.println();
-        Serial.print("verf ");
-        for (int j = 0; j < nReceivedBitsPos; j++)
+        Serial.print("vrfy ");
+        for (int j = 0; j < receivedBitsPos; j++)
         {
             Serial.print(receivedBits[j]);
         }
@@ -253,9 +256,9 @@ bool receiveProtocolNexa(unsigned int changeCount)
     // '1' => '10'
     // Example the logical datastream 0111 is sent over the air as 01101010.
     // I.e. keep every second byte
-    if (nReceivedBitsPos > 0)
+    if (receivedBitsPos > 0)
     {
-        for (int k = 0; k < nReceivedBitsPos; k = k + 2)
+        for (int k = 0; k < receivedBitsPos; k = k + 2)
         {
             code <<= 1;
             if (receivedBits[k] == '1')
@@ -269,15 +272,15 @@ bool receiveProtocolNexa(unsigned int changeCount)
     if (code > 0)
     {
         Serial.print("lgic ");
-        Serial.println(dec2binWzerofill(code, nTmpReceivedBitlength / 2));
+        Serial.println(dec2binWzerofill(code, receivedBitlength / 2));
     }
 #endif
 
     // ignore low bit counts as there are no devices sending only x bit values => noise
-    if (changeCount > 8)
+    if (changeCount > 7)
     {
         nReceivedValue = code;
-        nReceivedBitlength = nTmpReceivedBitlength;
+        nReceivedBitlength = receivedBitlength;
         nReceivedDelay = delay;
         nReceivedProtocol = 10;
         return true;
@@ -298,13 +301,12 @@ void resetAvailable()
 
 void interrupt_handler()
 {
-    static unsigned int duration = 0;
     static unsigned int changeCount = 0;
     static unsigned long lastTime = 0;
     static unsigned int repeatCount = 0;
 
-    long curTime = micros();
-    duration = curTime - lastTime;
+    const long curTime = micros();
+    const unsigned int duration = curTime - lastTime;
 
     if (duration > nSeparationLimit)
     {
@@ -318,7 +320,6 @@ void interrupt_handler()
             // here that a sender will send the signal multiple times,
             // with roughly the same gap between them).
             repeatCount++;
-            changeCount--;
             if (repeatCount == 2)
             {
                 if (receiveProtocolNexa(changeCount) == false)
