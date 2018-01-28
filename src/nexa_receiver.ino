@@ -18,7 +18,7 @@ void printBinary(unsigned long inNumber, unsigned int digits = 32);
 #define RCSWITCH_MAX_CHANGES 250
 const unsigned int nSeparationLimit = 4300;
 unsigned int timings[RCSWITCH_MAX_CHANGES];
-volatile char *receivedBitsArray = new char[RCSWITCH_MAX_CHANGES];
+char receivedBits[RCSWITCH_MAX_CHANGES];
 volatile unsigned int changeCount = 0;
 unsigned long nReceivedValue = NULL;
 unsigned int nReceivedBitlength = 0;
@@ -170,7 +170,7 @@ bool receiveProtocolNexa(unsigned int changeCount)
     unsigned long delay = timings[0] / 41;
     unsigned long delayTolerance = delay * nReceiveTolerance * 0.01;
 
-    // store bits in char array
+    // store bits in the receivedBits char array
     unsigned int nReceivedBitsPos = 0;
     unsigned int nTmpReceivedBitlength = (changeCount - 3) / 2; // 3 starting bits needs to be removed
 
@@ -203,6 +203,7 @@ bool receiveProtocolNexa(unsigned int changeCount)
 #ifdef DEBUG
             Serial.print("sync ");
 #endif
+            // found sync, but don't do anything
         }
         // or 1 bit (T + T)
         else if (timings[i] > delay - delayTolerance && timings[i] < delay + delayTolerance && timings[i + 1] > delay - delayTolerance && timings[i + 1] < delay + delayTolerance)
@@ -210,7 +211,8 @@ bool receiveProtocolNexa(unsigned int changeCount)
 #ifdef DEBUG
             Serial.print("1");
 #endif
-            receivedBitsArray[nReceivedBitsPos++] = '1';
+            // store in receivedBits char array
+            receivedBits[nReceivedBitsPos++] = '1';
         }
         // or 0 bit (T + 5T)
         else if (timings[i] > delay - delayTolerance && timings[i] < delay + delayTolerance && timings[i + 1] > delay * 5 - delayTolerance && timings[i + 1] < delay * 5 + delayTolerance)
@@ -218,7 +220,8 @@ bool receiveProtocolNexa(unsigned int changeCount)
 #ifdef DEBUG
             Serial.print("0");
 #endif
-            receivedBitsArray[nReceivedBitsPos++] = '0';
+            // store in receivedBits char array
+            receivedBits[nReceivedBitsPos++] = '0';
         }
         else
         {
@@ -226,7 +229,6 @@ bool receiveProtocolNexa(unsigned int changeCount)
             i = changeCount;
 
             // reset bits array
-            delete[] receivedBitsArray;
             nReceivedBitsPos = 0;
         }
     }
@@ -238,7 +240,7 @@ bool receiveProtocolNexa(unsigned int changeCount)
         Serial.print("verf ");
         for (int j = 0; j < nReceivedBitsPos; j++)
         {
-            Serial.print(receivedBitsArray[j]);
+            Serial.print(receivedBits[j]);
         }
         Serial.println();
     }
@@ -256,7 +258,7 @@ bool receiveProtocolNexa(unsigned int changeCount)
         for (int k = 0; k < nReceivedBitsPos; k = k + 2)
         {
             code <<= 1;
-            if (receivedBitsArray[k] == '1')
+            if (receivedBits[k] == '1')
             {
                 code |= 1;
             }
