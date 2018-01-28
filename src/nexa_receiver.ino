@@ -167,8 +167,8 @@ bool receiveProtocolNexa(unsigned int changeCount)
         return false;
 
     unsigned long code = 0;
-    unsigned long delay = timings[0] / 41;
-    unsigned long delayTolerance = delay * nReceiveTolerance * 0.01;
+    const unsigned long delay = timings[0] / 41;
+    const unsigned long delayTolerance = delay * nReceiveTolerance / 100;
 
     // store bits in the receivedBits char array
     unsigned int nReceivedBitsPos = 0;
@@ -198,7 +198,8 @@ bool receiveProtocolNexa(unsigned int changeCount)
     for (int i = 1; i < changeCount; i = i + 2)
     {
         // check if have sync bit (T + 10T)
-        if (timings[i] > delay - delayTolerance && timings[i] < delay + delayTolerance && timings[i + 1] > delay * 10 - delayTolerance && timings[i + 1] < delay * 11 + delayTolerance)
+        if (diff(timings[i], delay) < delayTolerance &&
+            diff(timings[i + 1], delay * 11) < delayTolerance)
         {
 #ifdef DEBUG
             Serial.print("sync ");
@@ -206,30 +207,29 @@ bool receiveProtocolNexa(unsigned int changeCount)
             // found sync, but don't do anything
         }
         // or 1 bit (T + T)
-        else if (timings[i] > delay - delayTolerance && timings[i] < delay + delayTolerance && timings[i + 1] > delay - delayTolerance && timings[i + 1] < delay + delayTolerance)
+        else if (diff(timings[i], delay) < delayTolerance &&
+                 diff(timings[i + 1], delay) < delayTolerance)
         {
 #ifdef DEBUG
             Serial.print("1");
 #endif
-            // store in receivedBits char array
+            // store one in receivedBits char array
             receivedBits[nReceivedBitsPos++] = '1';
         }
         // or 0 bit (T + 5T)
-        else if (timings[i] > delay - delayTolerance && timings[i] < delay + delayTolerance && timings[i + 1] > delay * 5 - delayTolerance && timings[i + 1] < delay * 5 + delayTolerance)
+        else if (diff(timings[i], delay) < delayTolerance &&
+                 diff(timings[i + 1], delay * 5) < delayTolerance)
         {
 #ifdef DEBUG
             Serial.print("0");
 #endif
-            // store in receivedBits char array
+            // store zero in receivedBits char array
             receivedBits[nReceivedBitsPos++] = '0';
         }
         else
         {
             // Failed
-            i = changeCount;
-
-            // reset bits array
-            nReceivedBitsPos = 0;
+            return false;
         }
     }
 
@@ -280,16 +280,10 @@ bool receiveProtocolNexa(unsigned int changeCount)
         nReceivedBitlength = nTmpReceivedBitlength;
         nReceivedDelay = delay;
         nReceivedProtocol = 10;
-    }
-
-    if (code == 0)
-    {
-        return false;
-    }
-    else if (code != 0)
-    {
         return true;
     }
+
+    return false;
 }
 
 bool available()
